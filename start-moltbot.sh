@@ -214,8 +214,30 @@ if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_APP_TOKEN) {
 //   https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/openai
 const baseUrl = (process.env.AI_GATEWAY_BASE_URL || process.env.ANTHROPIC_BASE_URL || '').replace(/\/+$/, '');
 const isOpenAI = baseUrl.endsWith('/openai');
+const isGemini = process.env.GEMINI_API_KEY || baseUrl.includes('generativelanguage.googleapis.com');
 
-if (isOpenAI) {
+if (isGemini) {
+    // Create custom Google AI (Gemini) provider config using OpenAI-compatible API
+    console.log('Configuring Gemini provider');
+    config.models = config.models || {};
+    config.models.providers = config.models.providers || {};
+    config.models.providers.google = {
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+        api: 'openai-responses',
+        apiKey: process.env.GEMINI_API_KEY,
+        models: [
+            { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash', contextWindow: 1000000 },
+            { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', contextWindow: 2000000 },
+            { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', contextWindow: 1000000 },
+        ]
+    };
+    // Add models to the allowlist so they appear in /models
+    config.agents.defaults.models = config.agents.defaults.models || {};
+    config.agents.defaults.models['google/gemini-2.0-flash-exp'] = { alias: 'Gemini 2.0 Flash' };
+    config.agents.defaults.models['google/gemini-1.5-pro'] = { alias: 'Gemini 1.5 Pro' };
+    config.agents.defaults.models['google/gemini-1.5-flash'] = { alias: 'Gemini 1.5 Flash' };
+    config.agents.defaults.model.primary = 'google/gemini-2.0-flash-exp';
+} else if (isOpenAI) {
     // Create custom openai provider config with baseUrl override
     // Omit apiKey so moltbot falls back to OPENAI_API_KEY env var
     console.log('Configuring OpenAI provider with base URL:', baseUrl);
